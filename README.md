@@ -141,6 +141,8 @@ Each WebView2 is basically a tiny browser inside your browser inside your OS. Yo
 
 ---
 
+### Yes, i actualy ran 100 tabs just for the readme
+
 ## 📁 Project Structure
 
 ```
