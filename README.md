@@ -71,7 +71,7 @@ dotnet build -c Release
 dotnet run
 ```
 
-##if you're lazy not my problem just build it
+## if you're lazy not my problem just build it
 
 ---
 
