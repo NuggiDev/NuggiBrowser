@@ -166,7 +166,7 @@ NuggiBrowser/
 | Firefox | 💀💀💀💀 | 💀💀💀 | substantial | actually pretty chill | Mozilla |
 | Edge | 💀💀💀💀💀 | 💀💀💀💀💀 | massive absolute unit | confused Microsoft moment | Microsoft |
 | Safari | 💀💀💀 | 💀💀 | none | apple tax | Apple |
-| **NuggiBrowser** | 💀💀💀 | 💀💀 | ZERO | homemade artisanal vibes 🔥 | a dude with a Snapdragon |
+| **NuggiBrowser** | 💀💀💀 | 💀💀 | ZERO | homemade artisanal vibes 🔥 | the dude with the Snapdragon |
 
 ---
 
@@ -176,7 +176,7 @@ NuggiBrowser/
 - **Because Edge sucks sometimes** ✅
 - **Because WinUI 3 is criminally underrated** ✅
 - **Because WebView2 goes BRRRRRRR** ✅
-- **Because the Snapdragon X Plus deserves respect** ✅
+- **Because the Snapdragon X Plus is lowkey goated** ✅
 - **Because you're unhinged** ✅
 
 ---
