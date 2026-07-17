@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🌐 NuggiBrowser
+## 🌐 NuggiBrowser
 
 **A lightweight, tab-based web browser built with WinUI 3 — because Microsoft Edge was too bloated and you hate yourself**
 
@@ -10,7 +10,7 @@
 ![WebView2](https://img.shields.io/badge/WebView2-Latest-00a4ef?style=for-the-badge)
 ![Sanity](https://img.shields.io/badge/sanity-optional-red?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-MIT-yellow?style=for-the-badge)
-![NuggiDev Sanity](https://img.shields.io/badge/My%20Sanity-gone-darkred?style=for-the-badge)
+![Coding Time](https://img.shields.io/badge/Coding%20STime-3hours-darkred?style=for-the-badge)
 
 </div>
 
