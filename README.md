@@ -45,7 +45,7 @@
 >
 > **Your CPU will start sweating.**
 >
-> **Your pets will abandon you.**
+> **But 100 tabs? Actually works fine. 5.5 GB, still snappy. We tested it.**
 >
 > But hey, at least it's not Electron! 🎉
 
@@ -137,7 +137,7 @@ Each WebView2 is basically a tiny browser inside your browser inside your OS. Yo
 | Open 10 tabs | ~2 GB RAM | ~2.5 GB RAM | Chill vibes only |
 | Open 25 tabs | 💀 | 💀 | Your fault now |
 | Open 50 tabs | 💀💀 | 💀💀💀 | Absolutely unhinged behavior |
-| Open 100 tabs | 💀💀💀 | 💀💀💀💀 | Certified maniac |
+| Open 100 tabs | 💀💀💀 | ~5 GB RAM 🔥 | **ACTUALLY WORKS** |
 
 ---
 
