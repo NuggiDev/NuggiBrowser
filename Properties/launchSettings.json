@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "nuggiUI (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "nuggiUI (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
