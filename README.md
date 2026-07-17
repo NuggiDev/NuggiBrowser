@@ -10,6 +10,7 @@
 ![WebView2](https://img.shields.io/badge/WebView2-Latest-00a4ef?style=for-the-badge)
 ![Sanity](https://img.shields.io/badge/sanity-optional-red?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-MIT-yellow?style=for-the-badge)
+![NuggiDev Sanity](https://img.shields.io/badge/NuggiDev%20Sanity-gone-darkred?style=for-the-badge)
 
 </div>
 
@@ -70,19 +71,14 @@ dotnet build -c Release
 dotnet run
 ```
 
-Or if you're feeling lazy (we get it, no judgment):
-
-```cmd
-cd NuggiBrowser\bin\Release\net8.0-windows\win-arm64
-NuggiBrowser.exe
-```
+##if you're lazy not my problem just build it
 
 ---
 
 ## 🚀 Usage
 
 ```
-1. Open NuggiBrowser.exe
+1. Open nuggiUI.exe
 2. Type a URL or search term in the address bar
 3. Press Enter
 4. Repeat step 2 with 47 more tabs because you hate productivity
@@ -99,7 +95,7 @@ NuggiBrowser.exe
 ## 🧠 How It Works
 
 ```
-NuggiBrowser.exe
+nuggiUI.exe
      │
      ├── MainPage (where the magic happens)
      │   ├── TabsListView (keeps track of your questionable life decisions)
