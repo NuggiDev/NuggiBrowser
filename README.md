@@ -4,7 +4,7 @@
 
 **A lightweight, tab-based web browser built with WinUI 3 — because Microsoft Edge was too bloated and you hate yourself**
 
-![Platform](https://img.shields.io/badge/platform-Windows%20ARM64-blue?style=for-the-badge&logo=windows)
+![Platform](https://img.shields.io/badge/platform-Windows%20x86%2Fx64%2FARM64-blue?style=for-the-badge&logo=windows)
 ![Language](https://img.shields.io/badge/language-C%23-239120?style=for-the-badge&logo=csharp)
 ![Framework](https://img.shields.io/badge/WinUI-3.0-purple?style=for-the-badge)
 ![WebView2](https://img.shields.io/badge/WebView2-Latest-00a4ef?style=for-the-badge)
@@ -54,7 +54,7 @@
 
 ### Prerequisites
 
-- Windows 10 / 11 (x64 or ARM64, preferably Snapdragon to flex on the normies)
+- Windows 10 / 11 (x86, x64, or ARM64 — works everywhere)
 - [.NET 8 SDK or Runtime](https://dotnet.microsoft.com/download)
 - [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) (probably already on your machine from 47 other Microsoft things)
 - Visual Studio 2022 (or Build Tools, we're not judging your life choices)
