@@ -42,9 +42,9 @@
 >
 > **Your system fan will achieve liftoff velocity.**
 >
-> **Your Snapdragon will thermal throttle faster than a stock car at a drag race.**
+> **Your CPU will start sweating.**
 >
-> **Ming will leave the room and judge you silently.**
+> **Your pets will abandon you.**
 >
 > But hey, at least it's not Electron! 🎉
 
@@ -123,7 +123,7 @@ Each WebView2 is basically a tiny browser inside your browser inside your OS. Yo
 - **Nothing catastrophic** — it actually works. I was being dramatically wrong earlier.
 - **Event Handler Lambdas**: Capture `tab` via closure, but it's genuinely fine. Barely noticeable overhead.
 - **Static Reference**: `MainWindow.Instance` exists. Could be weak reference, but honestly? It's completely fine. I'm not changing it.
-- **CPU Usage**: 50 tabs = 50 Edge processes = your Snapdragon absolutely vibing in the danger zone
+- **CPU Usage**: 50 tabs = 50 Edge processes = your CPU absolutely vibing in the danger zone
 - **No Explicit Disposal**: `WebView2.Close()` does the job perfectly, but you *could* add `.Dispose()` if you're neurotic
 - **Missing: Nothing really** — it's just a solid lightweight browser, I apologize for the earlier audit rage
 
