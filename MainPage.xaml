@@ -8,7 +8,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     Background="Transparent"
-    RequestedTheme="Dark">
+    >
 
     <Page.KeyboardAccelerators>
         <KeyboardAccelerator Key="T" Modifiers="Control" Invoked="NewTab_Shortcut"/>
@@ -16,6 +16,12 @@
         <KeyboardAccelerator Key="L" Modifiers="Control" Invoked="FocusUrl_Shortcut"/>
         <KeyboardAccelerator Key="R" Modifiers="Control" Invoked="Refresh_Shortcut"/>
     </Page.KeyboardAccelerators>
+
+    <Page.Transitions>
+        <TransitionCollection>
+            <EntranceThemeTransition/>
+        </TransitionCollection>
+    </Page.Transitions>
 
     <Page.Resources>
         <Style x:Key="NavIconButtonStyle" TargetType="Button">
@@ -25,7 +31,7 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Foreground" Value="#AAAAAA"/>
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
         </Style>
     </Page.Resources>
 
@@ -34,7 +40,7 @@
                IsPaneOpen="False"
                OpenPaneLength="220"
                CompactPaneLength="0"
-               PaneBackground="#1A1A1A">
+               PaneBackground="{ThemeResource SolidBackgroundFillColorBaseBrush}">
         
         <SplitView.Pane>
             <Grid x:Name="SidebarRoot" 
@@ -47,19 +53,19 @@
 
                 <!-- SIDEBAR TOP (drag area) -->
                 <Border Grid.Row="0"
-                        Background="#1A1A1A"
+                        Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
                         Padding="16,0,12,0">
                     <TextBlock Text="NuggiBrowser"
                                FontSize="12"
                                FontWeight="Medium"
-                               Foreground="#FFFFFF"
+                               Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                Opacity="0.3"
                                VerticalAlignment="Center"/>
                 </Border>
 
                 <!-- SIDEBAR CONTENT -->
                 <Grid Grid.Row="1"
-                      Background="#1A1A1A"
+                      Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
                       Padding="8,4,8,8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -73,6 +79,12 @@
                     <ItemsControl Grid.Row="0"
                                   ItemsSource="{x:Bind PinnedTabs}"
                                   Margin="8,8,8,12">
+                        <ItemsControl.ItemContainerTransitions>
+                            <TransitionCollection>
+                                <AddDeleteThemeTransition/>
+                                <EntranceThemeTransition IsStaggeringEnabled="True"/>
+                            </TransitionCollection>
+                        </ItemsControl.ItemContainerTransitions>
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel Orientation="Horizontal" Spacing="6"/>
@@ -81,7 +93,7 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="local:BrowserTab">
                                 <Button Width="32" Height="32" Padding="0" CornerRadius="8"
-                                        Background="#2A2A2A" BorderThickness="0"
+                                        Background="{ThemeResource ControlFillColorDefaultBrush}" BorderThickness="0"
                                         Click="PinnedTab_Click" Tag="{x:Bind}"
                                         ToolTipService.ToolTip="{x:Bind Title, Mode=OneWay}">
                                     <Button.ContextFlyout>
@@ -91,7 +103,7 @@
                                         </MenuFlyout>
                                     </Button.ContextFlyout>
                                     <Grid>
-                                        <FontIcon Glyph="&#xE774;" FontSize="14" Foreground="#AAAAAA"
+                                        <FontIcon Glyph="&#xE774;" FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                   Visibility="{x:Bind FallbackVisibility, Mode=OneWay}"/>
                                         <Image Source="{x:Bind Favicon, Mode=OneWay}"
                                                Visibility="{x:Bind FaviconVisibility, Mode=OneWay}"
@@ -107,7 +119,7 @@
                                Text="My Space"
                                FontSize="10"
                                FontWeight="SemiBold"
-                               Foreground="#FFFFFF"
+                               Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                Opacity="0.35"
                                Margin="12,0,8,8"
                                CharacterSpacing="50"/>
@@ -118,6 +130,13 @@
                               SelectionMode="Single"
                               SelectionChanged="TabsListView_SelectionChanged"
                               Padding="0">
+                        <ListView.ItemContainerTransitions>
+                            <TransitionCollection>
+                                <AddDeleteThemeTransition/>
+                                <ReorderThemeTransition/>
+                                <EntranceThemeTransition IsStaggeringEnabled="True"/>
+                            </TransitionCollection>
+                        </ListView.ItemContainerTransitions>
                         <ListView.ItemContainerStyle>
                             <Style TargetType="ListViewItem">
                                 <Setter Property="Padding" Value="8,5"/>
@@ -144,7 +163,7 @@
                                     <Grid Width="16" Height="16" VerticalAlignment="Center">
                                         <FontIcon Glyph="&#xE774;"
                                                   FontSize="12"
-                                                  Foreground="#AAAAAA"
+                                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                   Visibility="{x:Bind FallbackVisibility, Mode=OneWay}"/>
                                         <Image Source="{x:Bind Favicon, Mode=OneWay}" 
                                                Visibility="{x:Bind FaviconVisibility, Mode=OneWay}"
@@ -153,7 +172,7 @@
                                     <TextBlock Grid.Column="1"
                                                Text="{x:Bind Title, Mode=OneWay}"
                                                FontSize="13"
-                                               Foreground="#E0E0E0"
+                                               Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                                Margin="6,0,0,0"
                                                VerticalAlignment="Center"
                                                TextTrimming="CharacterEllipsis"/>
@@ -161,7 +180,7 @@
                                             Content="&#xE711;"
                                             FontFamily="Segoe MDL2 Assets"
                                             FontSize="9"
-                                            Foreground="#888888"
+                                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                             Background="Transparent"
                                             BorderThickness="0"
                                             Width="22"
@@ -175,7 +194,7 @@
                     </ListView>
 
                     <!-- Separator -->
-                    <Rectangle Grid.Row="3" Fill="#303030" Margin="8,0"/>
+                    <Rectangle Grid.Row="3" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="8,0"/>
 
                     <!-- New Tab button -->
                     <Button Grid.Row="4"
@@ -188,8 +207,8 @@
                             CornerRadius="8"
                             Click="NewTab_Click">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE710;" FontSize="12" Foreground="#888888"/>
-                            <TextBlock Text="New Tab" FontSize="13" Foreground="#888888"/>
+                            <FontIcon Glyph="&#xE710;" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                            <TextBlock Text="New Tab" FontSize="13" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                         </StackPanel>
                     </Button>
                 </Grid>
@@ -206,7 +225,7 @@
                 <!-- NAV BAR -->
                 <Grid Grid.Row="0"
                       x:Name="TopNavGrid"
-                      Background="#1A1A1A"
+                      Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
                       PointerEntered="Content_PointerEntered">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -245,7 +264,7 @@
                     <!-- URL Bar (clean rounded rect, not a pill) -->
                     <Border Grid.Column="1"
                             CornerRadius="8"
-                            Background="#2C2C2C"
+                            Background="{ThemeResource ControlFillColorDefaultBrush}"
                             Margin="4,9">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -256,7 +275,7 @@
                             <FontIcon Grid.Column="0" 
                                       Glyph="&#xE72E;" 
                                       FontSize="12" 
-                                      Foreground="#888888" 
+                                      Foreground="{ThemeResource TextFillColorTertiaryBrush}" 
                                       Margin="12,0,0,0" 
                                       VerticalAlignment="Center"/>
                                       
@@ -264,7 +283,7 @@
                                      x:Name="UrlTextBox"
                                      Background="Transparent"
                                      BorderThickness="0"
-                                     Foreground="#E0E0E0"
+                                     Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                      PlaceholderText="Search or enter URL"
                                      VerticalAlignment="Center"
                                      HorizontalAlignment="Stretch"
@@ -293,7 +312,7 @@
                 <!-- WEBVIEW CONTAINER -->
                 <Grid Grid.Row="1"
                       x:Name="WebViewContainer"
-                      Background="#1A1A1A"/>
+                      Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"/>
 
                 <!-- SIDEBAR DISMISS OVERLAY -->
                 <Grid Grid.Row="1"
@@ -308,3 +327,5 @@
         </SplitView.Content>
     </SplitView>
 </Page>
+
+

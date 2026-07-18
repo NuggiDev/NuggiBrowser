@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -25,6 +26,7 @@ namespace nuggiUI
 
         public string Url { get; set; } = "https://www.google.com";
         public WebView2 WebView { get; set; } = null!;
+        public bool IsPinned { get; set; } = false;
 
         private BitmapImage? _favicon = null;
         public BitmapImage? Favicon
@@ -79,9 +81,24 @@ namespace nuggiUI
         {
             this.Loaded -= MainPage_Loaded;
 
+            var localSettings = Windows.Storage.ApplicationData.Current.LocalSettings;
+            var initialTheme = ElementTheme.Dark;
+            if (localSettings.Values["Theme"] is string theme)
+            {
+                initialTheme = theme == "Light" ? ElementTheme.Light : ElementTheme.Dark;
+            }
+
             // Register the top nav grid as the window drag/title bar region
             if (MainWindow.Instance != null)
+            {
                 MainWindow.Instance.SetTitleBar(TopNavGrid);
+                MainWindow.Instance.UpdateTheme(initialTheme);
+            }
+
+            if (localSettings.Values["PinSidebar"] is bool pinned && pinned)
+            {
+                SidebarSplitView.IsPaneOpen = true;
+            }
 
             CreateNewTab();
         }
@@ -99,7 +116,7 @@ namespace nuggiUI
 
             webView.NavigationStarting += (s, e) =>
             {
-                if (e.Uri != "about:blank")
+                if (e.Uri != "about:blank" && !e.Uri.StartsWith("data:"))
                 {
                     tab.Url = e.Uri;
                 }
@@ -138,6 +155,15 @@ namespace nuggiUI
             TabsListView.SelectedItem = tab;
 
             await webView.EnsureCoreWebView2Async();
+            try
+            {
+                var scheme = this.ActualTheme == ElementTheme.Dark 
+                    ? Microsoft.Web.WebView2.Core.CoreWebView2PreferredColorScheme.Dark 
+                    : Microsoft.Web.WebView2.Core.CoreWebView2PreferredColorScheme.Light;
+                webView.CoreWebView2.Profile.PreferredColorScheme = scheme;
+            }
+            catch { }
+
             if (url == "nuggi://newtab")
             {
                 webView.NavigateToString(GetNewTabHtml());
@@ -195,7 +221,9 @@ namespace nuggiUI
             if (sender is FrameworkElement fe && fe.Tag is BrowserTab tab)
             {
                 if (Tabs.Contains(tab)) Tabs.Remove(tab);
+                tab.IsPinned = true;
                 if (!PinnedTabs.Contains(tab)) PinnedTabs.Add(tab);
+                RefreshNewTabs();
             }
         }
 
@@ -204,7 +232,9 @@ namespace nuggiUI
             if (sender is FrameworkElement fe && fe.Tag is BrowserTab tab)
             {
                 if (PinnedTabs.Contains(tab)) PinnedTabs.Remove(tab);
+                tab.IsPinned = false;
                 if (!Tabs.Contains(tab)) Tabs.Add(tab);
+                RefreshNewTabs();
             }
         }
 
@@ -250,15 +280,20 @@ namespace nuggiUI
 
         private void Content_PointerEntered(object sender, PointerRoutedEventArgs e)
         {
+            var localSettings = Windows.Storage.ApplicationData.Current.LocalSettings;
+            if (localSettings.Values["PinSidebar"] is bool pinned && pinned) return;
+            
             SidebarSplitView.IsPaneOpen = false;
             SidebarDismissOverlay.Visibility = Visibility.Collapsed;
         }
 
         private void Sidebar_PointerExited(object sender, PointerRoutedEventArgs e)
         {
-            var point = e.GetCurrentPoint(SidebarRoot).Position;
-            // Add a 5px buffer because edge-exits often report a coordinate slightly inside the actual width
-            if (point.X >= SidebarRoot.ActualWidth - 5 || point.X <= 5 || point.Y <= 5 || point.Y >= SidebarRoot.ActualHeight - 5)
+            var localSettings = Windows.Storage.ApplicationData.Current.LocalSettings;
+            if (localSettings.Values["PinSidebar"] is bool pinned && pinned) return;
+
+            var ptr = e.GetCurrentPoint(SidebarRoot).Position;
+            if (ptr.X > SidebarRoot.ActualWidth - 2 || ptr.X < 2 || ptr.Y < 2 || ptr.Y > SidebarRoot.ActualHeight - 2)
             {
                 SidebarSplitView.IsPaneOpen = false;
                 SidebarDismissOverlay.Visibility = Visibility.Collapsed;
@@ -271,11 +306,19 @@ namespace nuggiUI
             _activeTab?.WebView.Reload();
         }
 
-        private async void NavigateActiveTab(string dest)
+        private void NavigateTo(string url)
+        {
+            if (_activeTab != null)
+            {
+                _activeTab.WebView.CoreWebView2.Navigate(url);
+            }
+        }
+
+        private async void NavigateActiveTab(string text)
         {
             if (_activeTab == null) return;
             
-            if (dest == "nuggi://newtab" || string.IsNullOrWhiteSpace(dest))
+            if (text == "nuggi://newtab" || string.IsNullOrWhiteSpace(text))
             {
                 await _activeTab.WebView.EnsureCoreWebView2Async();
                 _activeTab.WebView.NavigateToString(GetNewTabHtml());
@@ -284,11 +327,23 @@ namespace nuggiUI
                 return;
             }
 
-            if (!dest.StartsWith("http://") && !dest.StartsWith("https://"))
-                dest = dest.Contains(".") && !dest.Contains(" ")
-                    ? "https://" + dest
-                    : "https://www.google.com/search?q=" + Uri.EscapeDataString(dest);
-            try { _activeTab.WebView.Source = new Uri(dest); } catch (UriFormatException) { }
+            if (text.StartsWith("http://") || text.StartsWith("https://") || text.Contains("."))
+            {
+                string dest = text.StartsWith("http") ? text : "https://" + text;
+                try { _activeTab.WebView.Source = new Uri(dest); } catch (UriFormatException) { }
+            }
+            else 
+            {
+                var localSettings = Windows.Storage.ApplicationData.Current.LocalSettings;
+                string engine = localSettings.Values["SearchEngine"] as string ?? "Google";
+                string searchUrl = engine switch
+                {
+                    "Bing" => $"https://www.bing.com/search?q={Uri.EscapeDataString(text)}",
+                    "DuckDuckGo" => $"https://duckduckgo.com/?q={Uri.EscapeDataString(text)}",
+                    _ => $"https://www.google.com/search?q={Uri.EscapeDataString(text)}"
+                };
+                NavigateTo(searchUrl);
+            }
         }
 
         private void UrlTextBox_KeyDown(object sender, KeyRoutedEventArgs e)
@@ -312,86 +367,210 @@ namespace nuggiUI
         {
             var dialog = new ContentDialog
             {
-                Title = "Settings & History",
+                Title = "Nuggi Settings",
                 CloseButtonText = "Close",
-                XamlRoot = this.XamlRoot,
-                RequestedTheme = ElementTheme.Dark
+                XamlRoot = this.XamlRoot
             };
 
-            var stack = new StackPanel { Spacing = 12 };
-            var clearBtn = new Button { Content = "Clear Browsing History" };
-            clearBtn.Click += async (s, args) =>
+            var stack = new StackPanel { Spacing = 24, Margin = new Thickness(0, 12, 0, 0) };
+            var localSettings = Windows.Storage.ApplicationData.Current.LocalSettings;
+
+            // 1. Theme Setting
+            var themeStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
+            themeStack.Children.Add(new FontIcon { Glyph = "\uE793", VerticalAlignment = VerticalAlignment.Center });
+            var themeToggle = new ToggleSwitch
             {
-                await HistoryManager.ClearAsync();
-                clearBtn.Content = "History Cleared!";
+                Header = "Dark Mode",
+                IsOn = this.ActualTheme == ElementTheme.Dark
             };
+            themeToggle.Toggled += (s, args) =>
+            {
+                var newTheme = themeToggle.IsOn ? ElementTheme.Dark : ElementTheme.Light;
+                if (MainWindow.Instance != null) MainWindow.Instance.UpdateTheme(newTheme);
+                else this.RequestedTheme = newTheme;
+                dialog.RequestedTheme = newTheme;
+                localSettings.Values["Theme"] = themeToggle.IsOn ? "Dark" : "Light";
+                
+                var wvTheme = themeToggle.IsOn 
+                    ? Microsoft.Web.WebView2.Core.CoreWebView2PreferredColorScheme.Dark 
+                    : Microsoft.Web.WebView2.Core.CoreWebView2PreferredColorScheme.Light;
+                
+                foreach (var tab in Tabs)
+                {
+                    try { tab.WebView.CoreWebView2.Profile.PreferredColorScheme = wvTheme; } catch { }
+                }
+                
+                RefreshNewTabs();
+            };
+            themeStack.Children.Add(themeToggle);
+            stack.Children.Add(themeStack);
 
-            var histHeader = new TextBlock { Text = "Recent History", FontWeight = Microsoft.UI.Text.FontWeights.Bold, Margin = new Thickness(0, 12, 0, 0) };
+            // 2. Pin Sidebar Setting
+            var pinStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
+            pinStack.Children.Add(new FontIcon { Glyph = "\uE840", VerticalAlignment = VerticalAlignment.Center });
+            var pinToggle = new ToggleSwitch
+            {
+                Header = "Pin Sidebar",
+                IsOn = localSettings.Values["PinSidebar"] is bool pinned && pinned,
+                OffContent = "Auto-hide",
+                OnContent = "Pinned"
+            };
+            pinToggle.Toggled += (s, args) =>
+            {
+                localSettings.Values["PinSidebar"] = pinToggle.IsOn;
+                SidebarSplitView.IsPaneOpen = pinToggle.IsOn;
+                SidebarDismissOverlay.Visibility = Visibility.Collapsed;
+            };
+            pinStack.Children.Add(pinToggle);
+            stack.Children.Add(pinStack);
+
+            // 3. Search Engine Setting
+            var searchStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
+            searchStack.Children.Add(new FontIcon { Glyph = "\uE721", VerticalAlignment = VerticalAlignment.Center });
+            var searchCombo = new ComboBox
+            {
+                Header = "Default Search Engine",
+                Width = 200,
+                ItemsSource = new[] { "Google", "Bing", "DuckDuckGo" },
+                SelectedItem = localSettings.Values["SearchEngine"] as string ?? "Google"
+            };
+            searchCombo.SelectionChanged += (s, args) =>
+            {
+                localSettings.Values["SearchEngine"] = searchCombo.SelectedItem as string;
+                RefreshNewTabs();
+            };
+            searchStack.Children.Add(searchCombo);
+            stack.Children.Add(searchStack);
             
-            var histList = new ListView { MaxHeight = 300, Padding = new Thickness(0) };
-            histList.ItemsSource = HistoryManager.GetHistory();
-            histList.ItemTemplate = (DataTemplate)XamlReader.Load(@"
-                <DataTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'>
-                    <StackPanel Margin='0,4'>
-                        <TextBlock Text='{Binding Title}' FontWeight='SemiBold' TextTrimming='CharacterEllipsis' MaxWidth='300'/>
-                        <TextBlock Text='{Binding Url}' FontSize='11' Foreground='#AAAAAA' TextTrimming='CharacterEllipsis' MaxWidth='300'/>
-                    </StackPanel>
-                </DataTemplate>");
+            // 4. Clear Tabs Action
+            var clearStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
+            clearStack.Children.Add(new FontIcon { Glyph = "\uE74D", VerticalAlignment = VerticalAlignment.Center });
+            var clearBtn = new Button { Content = "Close all tabs", Width = 200 };
+            clearBtn.Click += (s, args) => 
+            {
+                var unpinned = Tabs.Where(t => !t.IsPinned).ToList();
+                foreach (var t in unpinned) { Tabs.Remove(t); WebViewContainer.Children.Remove(t.WebView); t.WebView.Close(); }
+                if (!Tabs.Any() && !PinnedTabs.Any()) CreateNewTab();
+            };
+            clearStack.Children.Add(clearBtn);
+            stack.Children.Add(clearStack);
 
-            stack.Children.Add(clearBtn);
-            stack.Children.Add(histHeader);
-            stack.Children.Add(histList);
             dialog.Content = stack;
-
             await dialog.ShowAsync();
+        }
+
+        private void RefreshNewTabs()
+        {
+            foreach (var tab in Tabs)
+            {
+                if (tab.Url == "") 
+                {
+                    tab.WebView.NavigateToString(GetNewTabHtml());
+                }
+            }
         }
             
         private string GetNewTabHtml()
         {
-            return @"
+            var localSettings = Windows.Storage.ApplicationData.Current.LocalSettings;
+            string engine = localSettings.Values["SearchEngine"] as string ?? "Google";
+            string searchAction = engine switch
+            {
+                "Bing" => "https://www.bing.com/search?q=",
+                "DuckDuckGo" => "https://duckduckgo.com/?q=",
+                _ => "https://www.google.com/search?q="
+            };
+
+            bool isDark = this.ActualTheme != ElementTheme.Light;
+            string bgGradient = isDark 
+                ? "linear-gradient(-45deg, #121212, #1E1E1E, #181818, #222222)" 
+                : "linear-gradient(-45deg, #FFFFFF, #F8F8F8, #F0F0F0, #FAFAFA)";
+            string fg = isDark ? "#FFFFFF" : "#000000";
+            string inputBg = isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.03)";
+            string border = isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)";
+            string glow = isDark ? "rgba(237, 143, 3, 0.15)" : "rgba(237, 143, 3, 0.1)";
+
+            string shortcutsHtml = "";
+            if (PinnedTabs.Count == 0)
+            {
+                shortcutsHtml = $"<div style='color: #888; font-size: 14px; opacity: 0.7;'>Right-click a tab and select 'Pin' to add it here</div>";
+            }
+            else
+            {
+                int delay = 1;
+                foreach (var tab in PinnedTabs)
+                {
+                    if (string.IsNullOrEmpty(tab.Url) || tab.Url == "nuggi://newtab") continue;
+                    
+                    string domain = tab.Title;
+                    try { domain = new Uri(tab.Url).Host.Replace("www.", ""); } catch { }
+                    string letter = domain.Length > 0 ? domain.Substring(0, 1).ToUpper() : "N";
+                    
+                    shortcutsHtml += $@"
+                <a href='{tab.Url}' class='shortcut' style='animation-delay: 0.{delay}s'>
+                    <img src='https://www.google.com/s2/favicons?domain={tab.Url}&sz=64' class='shortcut-icon' onerror=""this.style.display='none'; this.nextElementSibling.style.display='flex';"" />
+                    <div class='shortcut-icon fallback-icon' style='display:none;'>{letter}</div>
+                    <span>{domain}</span>
+                </a>";
+                    delay++;
+                }
+            }
+
+            return $@"
 <!DOCTYPE html>
 <html>
 <head>
     <title>New Tab</title>
     <style>
-        body { background-color: #1A1A1A; color: #FFFFFF; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .search-container { text-align: center; width: 100%; max-width: 600px; }
-        .logo { font-size: 48px; font-weight: bold; margin-bottom: 30px; background: linear-gradient(90deg, #5064C8, #8C52FF); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        input[type='text'] { width: 100%; padding: 15px 20px; font-size: 16px; border-radius: 24px; border: 1px solid #333; background-color: #2C2C2C; color: white; outline: none; }
-        input[type='text']:focus { border-color: #5064C8; }
-        .shortcuts { display: flex; justify-content: center; gap: 20px; margin-top: 40px; }
-        .shortcut { display: flex; flex-direction: column; align-items: center; text-decoration: none; color: #AAAAAA; transition: color 0.2s; }
-        .shortcut:hover { color: #FFFFFF; }
-        .shortcut-icon { width: 48px; height: 48px; background-color: #2C2C2C; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; font-size: 24px; }
+        @keyframes fadeUp {{ from {{ opacity: 0; transform: translateY(30px); }} to {{ opacity: 1; transform: translateY(0); }} }}
+        @keyframes shimmer {{ 0% {{ background-position: 0% 50%; }} 50% {{ background-position: 100% 50%; }} 100% {{ background-position: 0% 50%; }} }}
+        @keyframes bgBreathe {{ 0% {{ background-position: 0% 50%; }} 50% {{ background-position: 100% 50%; }} 100% {{ background-position: 0% 50%; }} }}
+        @keyframes pulseGlow {{ 0% {{ transform: translate(-50%, -50%) scale(0.8); opacity: 0.5; }} 100% {{ transform: translate(-50%, -50%) scale(1.2); opacity: 1; }} }}
+        @keyframes borderPulse {{ 0% {{ box-shadow: 0 0 0 0 rgba(237, 143, 3, 0.4); }} 70% {{ box-shadow: 0 0 0 15px rgba(237, 143, 3, 0); }} 100% {{ box-shadow: 0 0 0 0 rgba(237, 143, 3, 0); }} }}
+        @keyframes bounce {{ 0%, 100% {{ transform: translateY(0) scale(1); }} 50% {{ transform: translateY(-10px) scale(1.05); }} }}
+
+        body {{ background: {bgGradient}; background-size: 400% 400%; color: {fg}; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; animation: bgBreathe 15s ease infinite; overflow: hidden; }}
+        
+        .ambient-glow {{ position: absolute; width: 800px; height: 800px; background: radial-gradient(circle, {glow} 0%, rgba(0,0,0,0) 70%); top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: -1; animation: pulseGlow 6s ease-in-out infinite alternate; pointer-events: none; }}
+        
+        .search-container {{ text-align: center; width: 100%; max-width: 600px; z-index: 1; animation: fadeUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }}
+        
+        .logo {{ font-size: 64px; font-weight: 800; margin-bottom: 35px; background: linear-gradient(90deg, #FFB75E, #ED8F03, #FFB75E); background-size: 200% auto; animation: shimmer 3s linear infinite; -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0px 8px 16px rgba(237, 143, 3, 0.4)); transition: all 0.3s ease; }}
+        .logo:hover {{ animation: shimmer 3s linear infinite, bounce 1.5s cubic-bezier(0.28, 0.84, 0.42, 1) infinite; }}
+        
+        input[type='text'] {{ width: 100%; padding: 18px 28px; font-size: 16px; border-radius: 32px; border: 1px solid {border}; background-color: {inputBg}; backdrop-filter: blur(10px); color: {fg}; outline: none; box-shadow: 0 4px 24px rgba(0,0,0,0.05); transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }}
+        input[type='text']:hover {{ box-shadow: 0 8px 32px rgba(0,0,0,0.1); transform: translateY(-2px); border-color: rgba(237, 143, 3, 0.5); }}
+        input[type='text']:focus {{ border-color: #ED8F03; background-color: {inputBg}; transform: translateY(-4px) scale(1.03); animation: borderPulse 2s infinite; }}
+        
+        .shortcuts {{ display: flex; justify-content: center; gap: 32px; margin-top: 56px; }}
+        .shortcut {{ display: flex; flex-direction: column; align-items: center; text-decoration: none; color: #888; transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); animation: fadeUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both; }}
+        .shortcut:nth-child(1) {{ animation-delay: 0.1s; }}
+        .shortcut:nth-child(2) {{ animation-delay: 0.2s; }}
+        .shortcut:nth-child(3) {{ animation-delay: 0.3s; }}
+        .shortcut:hover {{ color: {fg}; transform: translateY(-10px) scale(1.1); }}
+        .shortcut:active {{ transform: translateY(2px) scale(0.9); }}
+        
+        .shortcut-icon {{ width: 64px; height: 64px; background-color: {inputBg}; backdrop-filter: blur(10px); border: 1px solid {border}; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; font-size: 28px; transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); box-shadow: 0 4px 16px rgba(0,0,0,0.05); object-fit: contain; padding: 12px; box-sizing: border-box; }}
+        .shortcut:hover .shortcut-icon {{ background-color: #ED8F03; border-color: #ED8F03; color: white; box-shadow: 0 12px 32px rgba(237, 143, 3, 0.4); transform: rotate(8deg) scale(1.1); filter: brightness(1.2); }}
     </style>
 </head>
 <body>
+    <div class='ambient-glow'></div>
     <div class='search-container'>
         <div class='logo'>Nuggi</div>
         <form onsubmit='search(event)'>
             <input type='text' id='searchInput' placeholder='Search the web' autofocus autocomplete='off' />
         </form>
-    </div>
-    <div class='shortcuts'>
-        <a href='https://www.youtube.com' class='shortcut'>
-            <div class='shortcut-icon'>▶</div>
-            <span>YouTube</span>
-        </a>
-        <a href='https://www.reddit.com' class='shortcut'>
-            <div class='shortcut-icon'>👾</div>
-            <span>Reddit</span>
-        </a>
-        <a href='https://www.github.com' class='shortcut'>
-            <div class='shortcut-icon'>🐙</div>
-            <span>GitHub</span>
-        </a>
+        <div class='shortcuts'>
+            {shortcutsHtml}
+        </div>
     </div>
     <script>
-        function search(e) {
+        function search(e) {{
             e.preventDefault();
             const q = document.getElementById('searchInput').value;
-            if (q) window.location.href = 'https://www.google.com/search?q=' + encodeURIComponent(q);
-        }
+            if (q) window.location.href = '{searchAction}' + encodeURIComponent(q);
+        }}
     </script>
 </body>
 </html>";
