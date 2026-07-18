@@ -136,7 +136,7 @@ Each WebView2 is basically a tiny browser inside your browser inside your OS. Yo
 | Switch tabs | Instant | Instant (visibility toggle) | Snappy as heck |
 | Open 10 tabs | ~1 GB RAM | ~800-900 MB | Chill vibes only |
 | Open 25 tabs | ~2 GB RAM | ~1.8 GB | Still good |
-| Open 50 tabs | ~3.5 GB RAM | ~3 GB | Running smooth |
+| Open 50 tabs | ~3.5 GB RAM | ~3.3 GB | Running smooth |
 | Open 100 tabs | 💀 | ~5.5 GB 🔥 | **ACTUALLY WORKS** |
 
 ---
