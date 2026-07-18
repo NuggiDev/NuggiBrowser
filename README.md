@@ -45,7 +45,7 @@
 >
 > **Your CPU will start sweating.**
 >
-> **But 100 tabs? Actually works fine. 5.5 GB, still snappy. We tested it.**
+> **But 100 tabs? Actually works fine. 5.5 GB, still snappy. I tested it.**
 >
 > But hey, at least it's not Electron! 🎉
 
