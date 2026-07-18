@@ -11,6 +11,7 @@
 ![Sanity](https://img.shields.io/badge/sanity-optional-red?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-MIT-yellow?style=for-the-badge)
 ![Coding Time](https://img.shields.io/badge/Coding%20Time-3%20hours-darkred?style=for-the-badge)
+![Changing icons time](https://img.shields.io/badge/Changing%20Icons%20Time-1%20hours-darkred?style=for-the-badge)
 
 </div>
 
