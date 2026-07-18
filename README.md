@@ -4,7 +4,7 @@
 
 **A lightweight, tab-based web browser built with WinUI 3 — because Microsoft Edge was too bloated and you hate yourself**
 
-![Platform](https://img.shields.io/badge/platform-Windows%20x86%2Fx64%2FARM64-blue?style=for-the-badge&logo=windows)
+![Platform](https://img.shields.io/badge/platform-Windows%20x86%2Fx64%2FARM64-lightgreen?style=for-the-badge&logo=windows)
 ![Language](https://img.shields.io/badge/language-C%23-239120?style=for-the-badge&logo=csharp)
 ![Framework](https://img.shields.io/badge/WinUI-3.0-purple?style=for-the-badge)
 ![WebView2](https://img.shields.io/badge/WebView2-Latest-00a4ef?style=for-the-badge)
