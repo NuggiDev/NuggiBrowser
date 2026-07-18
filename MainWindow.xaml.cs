@@ -12,6 +12,12 @@ public sealed partial class MainWindow : Window
         Instance = this;
         ExtendsContentIntoTitleBar = true;
         AppWindow.SetIcon("Assets/AppIcon.ico");
+        
+        if (AppWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
+        {
+            presenter.Maximize();
+        }
+
         RootFrame.Navigate(typeof(MainPage));
     }
 

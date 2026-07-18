@@ -73,6 +73,7 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="1"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <!-- Pinned tabs row -->
@@ -115,15 +116,28 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <!-- Space name -->
-                    <TextBlock Grid.Row="1"
-                               Text="My Space"
-                               FontSize="10"
-                               FontWeight="SemiBold"
-                               Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                               Opacity="0.35"
-                               Margin="12,0,8,8"
-                               CharacterSpacing="50"/>
+                    <!-- Space selector -->
+                    <Grid Grid.Row="1" Margin="8,0,8,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="SpaceComboBox"
+                                  FontSize="11"
+                                  FontWeight="SemiBold"
+                                  Opacity="0.6"
+                                  HorizontalAlignment="Stretch"
+                                  BorderThickness="0"
+                                  Background="Transparent"
+                                  MinHeight="0"
+                                  Padding="4,2"
+                                  SelectionChanged="SpaceComboBox_SelectionChanged"/>
+                        <Button Grid.Column="1" Width="24" Height="24" Padding="0"
+                                Background="Transparent" BorderThickness="0"
+                                Click="AddSpace_Click" ToolTipService.ToolTip="Add Space">
+                            <FontIcon Glyph="&#xE710;" FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                        </Button>
+                    </Grid>
 
                     <!-- Tab list -->
                     <ListView Grid.Row="2"
@@ -198,8 +212,24 @@
                     <!-- Separator -->
                     <Rectangle Grid.Row="3" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="8,0"/>
 
-                    <!-- New Tab button -->
+                    <!-- History button -->
                     <Button Grid.Row="4"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Padding="10,8"
+                            Margin="0,4,0,0"
+                            CornerRadius="8"
+                            Click="History_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE81C;" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                            <TextBlock Text="History" FontSize="13" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- New Tab button -->
+                    <Button Grid.Row="5"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Left"
                             Background="Transparent"

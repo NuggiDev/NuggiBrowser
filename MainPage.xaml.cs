@@ -99,6 +99,11 @@ namespace nuggiUI
         public ObservableCollection<BrowserTab> PinnedTabs { get; } = new();
         public ObservableCollection<DownloadItem> Downloads { get; } = new();
         private BrowserTab? _activeTab;
+        
+        // Spaces
+        private List<string> _spaces = new() { "Personal" };
+        private string _currentSpace = "Personal";
+        private Dictionary<string, List<(string title, string url)>> _spaceTabs = new();
 
         public MainPage()
         {
@@ -131,7 +136,89 @@ namespace nuggiUI
             }
 
             UpdateAccentColors();
+            LoadSpaces();
             CreateNewTab();
+        }
+
+        private void LoadSpaces()
+        {
+            var localSettings = Windows.Storage.ApplicationData.Current.LocalSettings;
+            if (localSettings.Values["Spaces"] is string spacesJson)
+            {
+                try { _spaces = System.Text.Json.JsonSerializer.Deserialize<List<string>>(spacesJson) ?? new() { "Personal" }; } catch { }
+            }
+            if (_spaces.Count == 0) _spaces.Add("Personal");
+            _currentSpace = localSettings.Values["CurrentSpace"] as string ?? _spaces[0];
+            
+            SpaceComboBox.ItemsSource = _spaces;
+            SpaceComboBox.SelectedItem = _currentSpace;
+        }
+
+        private void SaveSpaces()
+        {
+            var localSettings = Windows.Storage.ApplicationData.Current.LocalSettings;
+            localSettings.Values["Spaces"] = System.Text.Json.JsonSerializer.Serialize(_spaces);
+            localSettings.Values["CurrentSpace"] = _currentSpace;
+        }
+
+        private void SpaceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (SpaceComboBox.SelectedItem is string selected && selected != _currentSpace)
+            {
+                // Save current space's tabs
+                var currentTabData = new List<(string title, string url)>();
+                foreach (var tab in Tabs) currentTabData.Add((tab.Title, tab.Url));
+                _spaceTabs[_currentSpace] = currentTabData;
+                
+                // Clear current tabs
+                foreach (var tab in Tabs.ToList()) 
+                { 
+                    WebViewContainer.Children.Remove(tab.ContentContainer); 
+                    tab.PrimaryWebView.Close(); 
+                    tab.SecondaryWebView?.Close(); 
+                }
+                Tabs.Clear();
+                _activeTab = null;
+                
+                _currentSpace = selected;
+                SaveSpaces();
+                
+                // Restore new space's tabs
+                if (_spaceTabs.ContainsKey(_currentSpace) && _spaceTabs[_currentSpace].Count > 0)
+                {
+                    foreach (var (title, url) in _spaceTabs[_currentSpace])
+                    {
+                        CreateNewTab(string.IsNullOrEmpty(url) ? "nuggi://newtab" : url);
+                    }
+                }
+                else
+                {
+                    CreateNewTab();
+                }
+            }
+        }
+
+        private async void AddSpace_Click(object sender, RoutedEventArgs e)
+        {
+            var inputBox = new TextBox { PlaceholderText = "Space name", Width = 300 };
+            var dialog = new ContentDialog
+            {
+                Title = "New Space",
+                Content = inputBox,
+                PrimaryButtonText = "Create",
+                CloseButtonText = "Cancel",
+                XamlRoot = this.XamlRoot,
+                RequestedTheme = this.ActualTheme
+            };
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(inputBox.Text))
+            {
+                _spaces.Add(inputBox.Text.Trim());
+                SaveSpaces();
+                SpaceComboBox.ItemsSource = null;
+                SpaceComboBox.ItemsSource = _spaces;
+                SpaceComboBox.SelectedItem = inputBox.Text.Trim();
+            }
         }
 
         private void SetupWebViewEvents(WebView2 webView, BrowserTab tab)
@@ -193,6 +280,13 @@ namespace nuggiUI
             {
                 webView.NavigateToString(GetNewTabHtml());
                 tab.Url = "";
+            }
+            else if (url == "nuggi://history")
+            {
+                await HistoryManager.LoadAsync();
+                webView.NavigateToString(GetHistoryHtml());
+                tab.Url = "nuggi://history";
+                tab.Title = "History";
             }
             else
             {
@@ -325,7 +419,12 @@ namespace nuggiUI
         private void History_Shortcut(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
         {
             args.Handled = true;
-            Settings_Click(null, new RoutedEventArgs());
+            CreateNewTab("nuggi://history");
+        }
+
+        private void History_Click(object sender, RoutedEventArgs e)
+        {
+            CreateNewTab("nuggi://history");
         }
 
         private void HoverTrigger_PointerEntered(object sender, PointerRoutedEventArgs e)
@@ -719,6 +818,123 @@ namespace nuggiUI
             e.preventDefault();
             const q = document.getElementById('searchInput').value;
             if (q) window.location.href = '{searchAction}' + encodeURIComponent(q);
+        }}
+    </script>
+</body>
+</html>";
+        }
+
+        private string GetHistoryHtml()
+        {
+            var localSettings = Windows.Storage.ApplicationData.Current.LocalSettings;
+            bool isDark = this.ActualTheme != ElementTheme.Light;
+            string bg = isDark ? "#1A1A1A" : "#FAFAFA";
+            string fg = isDark ? "#FFFFFF" : "#111111";
+            string cardBg = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)";
+            string border = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
+            string muted = isDark ? "#888" : "#666";
+
+            string accentName = localSettings.Values["AccentColor"] as string ?? "Nuggi Gold";
+            string accent = "#ED8F03";
+            if (accentName == "Ocean Blue") accent = "#2F80ED";
+            else if (accentName == "Forest Green") accent = "#28C76F";
+            else if (accentName == "Amethyst Purple") accent = "#9D50BB";
+            else if (accentName == "Crimson Red") accent = "#FF4B2B";
+
+            var history = HistoryManager.GetHistory();
+            var entriesHtml = new System.Text.StringBuilder();
+            string lastDate = "";
+            int animDelay = 0;
+
+            foreach (var entry in history)
+            {
+                string dateLabel = entry.Timestamp.Date == DateTime.Today ? "Today"
+                    : entry.Timestamp.Date == DateTime.Today.AddDays(-1) ? "Yesterday"
+                    : entry.Timestamp.ToString("MMMM d, yyyy");
+
+                if (dateLabel != lastDate)
+                {
+                    lastDate = dateLabel;
+                    entriesHtml.Append($"<div class='date-header' style='animation-delay:{animDelay * 30}ms'>{dateLabel}</div>");
+                    animDelay++;
+                }
+
+                string domain = "";
+                try { domain = new Uri(entry.Url).Host; } catch { domain = entry.Url; }
+                string safeTitle = entry.Title.Replace("'", "&#39;").Replace("\"", "&quot;");
+                string safeUrl = entry.Url.Replace("'", "&#39;").Replace("\"", "&quot;");
+
+                entriesHtml.Append($@"
+                <a href='{safeUrl}' class='entry' style='animation-delay:{animDelay * 30}ms'>
+                    <img src='https://www.google.com/s2/favicons?domain={domain}&sz=32' class='fav' onerror=""this.style.display='none'""/>
+                    <div class='info'>
+                        <div class='title'>{safeTitle}</div>
+                        <div class='url'>{domain}</div>
+                    </div>
+                    <div class='time'>{entry.Timestamp:HH:mm}</div>
+                </a>");
+                animDelay++;
+            }
+
+            if (history.Count == 0)
+            {
+                entriesHtml.Append("<div style='text-align:center;padding:80px 0;color:#888;font-size:16px;'>No history yet. Start browsing!</div>");
+            }
+
+            return $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <title>History</title>
+    <style>
+        @keyframes fadeIn {{ from {{ opacity: 0; transform: translateY(12px); }} to {{ opacity: 1; transform: translateY(0); }} }}
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ background: {bg}; color: {fg}; font-family: 'Segoe UI', sans-serif; padding: 48px 20%; min-height: 100vh; }}
+        
+        h1 {{ font-size: 32px; font-weight: 700; margin-bottom: 8px; animation: fadeIn 0.5s ease both; }}
+        .subtitle {{ color: {muted}; font-size: 14px; margin-bottom: 32px; animation: fadeIn 0.5s ease 0.1s both; }}
+        
+        .search {{ width: 100%; padding: 14px 20px; font-size: 15px; border-radius: 12px; border: 1px solid {border}; background: {cardBg}; color: {fg}; outline: none; margin-bottom: 32px; transition: all 0.3s ease; animation: fadeIn 0.5s ease 0.15s both; }}
+        .search:focus {{ border-color: {accent}; box-shadow: 0 0 0 3px {accent}33; }}
+        
+        .date-header {{ font-size: 13px; font-weight: 600; color: {accent}; text-transform: uppercase; letter-spacing: 1px; padding: 16px 0 8px 4px; border-bottom: 1px solid {border}; margin-bottom: 4px; animation: fadeIn 0.4s ease both; }}
+        
+        .entry {{ display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-radius: 12px; text-decoration: none; color: {fg}; transition: all 0.25s ease; animation: fadeIn 0.4s ease both; cursor: pointer; }}
+        .entry:hover {{ background: {cardBg}; transform: translateX(6px); }}
+        
+        .fav {{ width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0; }}
+        .info {{ flex: 1; min-width: 0; }}
+        .title {{ font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+        .url {{ font-size: 12px; color: {muted}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+        .time {{ font-size: 12px; color: {muted}; flex-shrink: 0; }}
+        
+        .clear-btn {{ position: fixed; bottom: 32px; right: 20%; padding: 12px 24px; background: {accent}; color: white; border: none; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 16px {accent}44; }}
+        .clear-btn:hover {{ transform: translateY(-2px); box-shadow: 0 8px 24px {accent}66; }}
+    </style>
+</head>
+<body>
+    <h1>History</h1>
+    <div class='subtitle'>{history.Count} pages visited</div>
+    <input type='text' class='search' placeholder='Search history...' oninput='filter(this.value)' />
+    <div id='entries'>
+        {entriesHtml}
+    </div>
+    <button class='clear-btn' onclick='clearAll()'>Clear All History</button>
+    <script>
+        function filter(q) {{
+            const entries = document.querySelectorAll('.entry');
+            const headers = document.querySelectorAll('.date-header');
+            q = q.toLowerCase();
+            entries.forEach(e => {{
+                const match = e.textContent.toLowerCase().includes(q);
+                e.style.display = match ? 'flex' : 'none';
+            }});
+        }}
+        function clearAll() {{
+            if (confirm('Clear all browsing history?')) {{
+                document.getElementById('entries').innerHTML = ""<div style='text-align:center;padding:80px 0;color:#888;font-size:16px;'>History cleared!</div>"";
+                document.querySelector('.clear-btn').style.display = 'none';
+            }}
         }}
     </script>
 </body>
