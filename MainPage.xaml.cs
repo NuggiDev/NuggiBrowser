@@ -2,9 +2,12 @@ using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Numerics;
 using System.Runtime.CompilerServices;
+using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Markup;
 using Windows.System;
@@ -137,7 +140,62 @@ namespace nuggiUI
 
             UpdateAccentColors();
             LoadSpaces();
+
+            // Load saved notes
+            var savedNotes = Windows.Storage.ApplicationData.Current.LocalSettings.Values["QuickNotes"] as string ?? "";
+            NotesTextBox.Text = savedNotes;
+
             CreateNewTab();
+        }
+
+        private bool _notesOpen = false;
+
+        private void QuickNotes_Click(object sender, RoutedEventArgs e)
+        {
+            _notesOpen = !_notesOpen;
+
+            // Make visible before animating in
+            NotesPanel.Visibility = Visibility.Visible;
+
+            // Enable translation on the composition visual
+            ElementCompositionPreview.SetIsTranslationEnabled(NotesPanel, true);
+            var visual = ElementCompositionPreview.GetElementVisual(NotesPanel);
+            var compositor = visual.Compositor;
+
+            // Slide animation
+            var slideAnim = compositor.CreateScalarKeyFrameAnimation();
+            var easing = _notesOpen
+                ? compositor.CreateCubicBezierEasingFunction(new Vector2(0.0f, 0.0f), new Vector2(0.15f, 1.0f))
+                : compositor.CreateCubicBezierEasingFunction(new Vector2(0.85f, 0.0f), new Vector2(1.0f, 1.0f));
+            slideAnim.InsertKeyFrame(0.0f, _notesOpen ? 300f : 0f, easing);
+            slideAnim.InsertKeyFrame(1.0f, _notesOpen ? 0f : 300f, easing);
+            slideAnim.Duration = TimeSpan.FromMilliseconds(180);
+
+            // Opacity animation
+            var opacityAnim = compositor.CreateScalarKeyFrameAnimation();
+            opacityAnim.InsertKeyFrame(1.0f, _notesOpen ? 1f : 0f);
+            opacityAnim.Duration = TimeSpan.FromMilliseconds(150);
+
+            visual.StartAnimation("Translation.X", slideAnim);
+            visual.StartAnimation("Opacity", opacityAnim);
+
+            // Collapse after close animation finishes
+            if (!_notesOpen)
+            {
+                var batch = compositor.CreateScopedBatch(CompositionBatchTypes.Animation);
+                batch.Completed += (s, a) => NotesPanel.Visibility = Visibility.Collapsed;
+                visual.StartAnimation("Translation.X", slideAnim);
+                batch.End();
+            }
+            else
+            {
+                NotesTextBox.Focus(FocusState.Programmatic);
+            }
+        }
+
+        private void Notes_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            Windows.Storage.ApplicationData.Current.LocalSettings.Values["QuickNotes"] = NotesTextBox.Text;
         }
 
         private void LoadSpaces()

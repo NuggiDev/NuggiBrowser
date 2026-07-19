@@ -74,6 +74,7 @@
                         <RowDefinition Height="1"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <!-- Pinned tabs row -->
@@ -228,8 +229,24 @@
                         </StackPanel>
                     </Button>
 
-                    <!-- New Tab button -->
+                    <!-- Quick Notes button -->
                     <Button Grid.Row="5"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Padding="10,8"
+                            Margin="0,4,0,0"
+                            CornerRadius="8"
+                            Click="QuickNotes_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE70B;" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                            <TextBlock Text="Quick Notes" FontSize="13" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- New Tab button -->
+                    <Button Grid.Row="6"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Left"
                             Background="Transparent"
@@ -380,10 +397,52 @@
                     <Grid Grid.Column="2"/>
                 </Grid>
 
-                <!-- WEBVIEW CONTAINER -->
-                <Grid Grid.Row="1"
-                      x:Name="WebViewContainer"
-                      Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"/>
+                <!-- WEBVIEW & NOTES (overlay layout) -->
+                <Grid Grid.Row="1">
+                    <Grid x:Name="WebViewContainer"
+                          Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"/>
+
+                    <!-- QUICK NOTES PANEL — overlays on top, slides in from right -->
+                    <Grid x:Name="NotesPanel"
+                          Width="300"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Stretch"
+                          Background="{ThemeResource LayerFillColorDefaultBrush}"
+                          BorderThickness="1,0,0,0"
+                          BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                          Padding="16"
+                          Visibility="Collapsed">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Grid Grid.Row="0" Margin="0,0,0,12">
+                            <TextBlock Text="Quick Notes"
+                                       FontWeight="SemiBold"
+                                       FontSize="16"
+                                       VerticalAlignment="Center"/>
+                            <Button HorizontalAlignment="Right"
+                                    Padding="4" Width="28" Height="28"
+                                    Content="&#xE711;"
+                                    FontFamily="Segoe MDL2 Assets"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Click="QuickNotes_Click"/>
+                        </Grid>
+
+                        <TextBox Grid.Row="1"
+                                 x:Name="NotesTextBox"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 FontSize="13"
+                                 PlaceholderText="Start typing your notes..."
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 VerticalAlignment="Stretch"
+                                 TextChanged="Notes_TextChanged"/>
+                    </Grid>
+                </Grid>
 
                 <!-- SIDEBAR DISMISS OVERLAY -->
                 <Grid Grid.Row="1"
