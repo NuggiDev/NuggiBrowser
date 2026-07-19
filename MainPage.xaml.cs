@@ -307,6 +307,52 @@ namespace nuggiUI
             };
             
             webView.PointerPressed += (s, e) => { if (tab.SecondaryWebView != null) tab.PrimaryWebView = webView; };
+
+            webView.WebMessageReceived += (s, e) =>
+            {
+                try
+                {
+                    var msg = System.Text.Json.JsonDocument.Parse(e.WebMessageAsJson).RootElement;
+                    string key = msg.GetProperty("key").GetString() ?? "";
+                    string val = msg.GetProperty("value").GetString() ?? "";
+                    var ls = Windows.Storage.ApplicationData.Current.LocalSettings;
+
+                    if (key == "theme")
+                    {
+                        ls.Values["Theme"] = val;
+                        var theme = val == "Dark" ? ElementTheme.Dark : ElementTheme.Light;
+                        MainWindow.Instance?.UpdateTheme(theme);
+                        var wvTheme = val == "Dark"
+                            ? Microsoft.Web.WebView2.Core.CoreWebView2PreferredColorScheme.Dark
+                            : Microsoft.Web.WebView2.Core.CoreWebView2PreferredColorScheme.Light;
+                        foreach (var t in Tabs) { try { t.PrimaryWebView.CoreWebView2.Profile.PreferredColorScheme = wvTheme; } catch { } }
+                        RefreshNewTabs();
+                    }
+                    else if (key == "accentColor")
+                    {
+                        ls.Values["AccentColor"] = val;
+                        UpdateAccentColors();
+                        RefreshNewTabs();
+                    }
+                    else if (key == "searchEngine")
+                    {
+                        ls.Values["SearchEngine"] = val;
+                        RefreshNewTabs();
+                    }
+                    else if (key == "pinSidebar")
+                    {
+                        bool pin = val == "true" || val == "True";
+                        ls.Values["PinSidebar"] = pin;
+                        SidebarSplitView.IsPaneOpen = pin;
+                        SidebarDismissOverlay.Visibility = Visibility.Collapsed;
+                    }
+                    else if (key == "clearHistory")
+                    {
+                        _ = HistoryManager.ClearAsync();
+                    }
+                }
+                catch { }
+            };
         }
 
         private async void CreateNewTab(string url = "nuggi://newtab")
@@ -345,6 +391,12 @@ namespace nuggiUI
                 webView.NavigateToString(GetHistoryHtml());
                 tab.Url = "nuggi://history";
                 tab.Title = "History";
+            }
+            else if (url == "nuggi://settings")
+            {
+                webView.NavigateToString(GetSettingsHtml());
+                tab.Url = "nuggi://settings";
+                tab.Title = "Settings";
             }
             else
             {
@@ -541,6 +593,25 @@ namespace nuggiUI
                 return;
             }
 
+            if (text == "nuggi://settings")
+            {
+                _activeTab.ActiveWebView.NavigateToString(GetSettingsHtml());
+                _activeTab.Url = "nuggi://settings";
+                _activeTab.Title = "Settings";
+                UrlTextBox.Text = "nuggi://settings";
+                return;
+            }
+
+            if (text == "nuggi://history")
+            {
+                await HistoryManager.LoadAsync();
+                _activeTab.ActiveWebView.NavigateToString(GetHistoryHtml());
+                _activeTab.Url = "nuggi://history";
+                _activeTab.Title = "History";
+                UrlTextBox.Text = "nuggi://history";
+                return;
+            }
+
             if (text.StartsWith("http://") || text.StartsWith("https://") || text.Contains("."))
             {
                 string dest = text.StartsWith("http") ? text : "https://" + text;
@@ -634,127 +705,115 @@ namespace nuggiUI
             UrlTextBox.SelectionHighlightColor = brush;
         }
             
-        private async void Settings_Click(object sender, RoutedEventArgs e)
+        private void Settings_Click(object sender, RoutedEventArgs e)
+            => NavigateActiveTab("nuggi://settings");
+
+        private string GetSettingsHtml()
         {
-            var dialog = new ContentDialog
-            {
-                Title = "Nuggi Settings",
-                CloseButtonText = "Close",
-                XamlRoot = this.XamlRoot
-            };
+            var ls = Windows.Storage.ApplicationData.Current.LocalSettings;
+            string theme   = ls.Values["Theme"] as string ?? "Dark";
+            string accent  = ls.Values["AccentColor"] as string ?? "Nuggi Gold";
+            string engine  = ls.Values["SearchEngine"] as string ?? "Google";
+            bool   pinned  = ls.Values["PinSidebar"] is bool p && p;
 
-            var stack = new StackPanel { Spacing = 24, Margin = new Thickness(0, 12, 0, 0) };
-            var localSettings = Windows.Storage.ApplicationData.Current.LocalSettings;
+            string accentHex = accent switch
+            {
+                "Ocean Blue"      => "#2F80ED",
+                "Forest Green"    => "#28C76F",
+                "Amethyst Purple" => "#6E48AA",
+                "Crimson Red"     => "#FF4B2B",
+                _                 => "#ED8F03"
+            };
+            bool   dark    = theme == "Dark";
+            string bg      = dark ? "#1c1c1e" : "#f5f5f7";
+            string card    = dark ? "#2c2c2e" : "#ffffff";
+            string txt     = dark ? "#f0f0f0" : "#1d1d1f";
+            string sub     = dark ? "#8e8e93" : "#6e6e73";
+            string border  = dark ? "#3a3a3c" : "#d1d1d6";
 
-            // 1. Theme Setting
-            var themeStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
-            themeStack.Children.Add(new FontIcon { Glyph = "\uE793", VerticalAlignment = VerticalAlignment.Center });
-            var themeToggle = new ToggleSwitch
-            {
-                Header = "Dark Mode",
-                IsOn = this.ActualTheme == ElementTheme.Dark
-            };
-            themeToggle.Toggled += (s, args) =>
-            {
-                var newTheme = themeToggle.IsOn ? ElementTheme.Dark : ElementTheme.Light;
-                if (MainWindow.Instance != null) MainWindow.Instance.UpdateTheme(newTheme);
-                else this.RequestedTheme = newTheme;
-                dialog.RequestedTheme = newTheme;
-                localSettings.Values["Theme"] = themeToggle.IsOn ? "Dark" : "Light";
-                
-                var wvTheme = themeToggle.IsOn 
-                    ? Microsoft.Web.WebView2.Core.CoreWebView2PreferredColorScheme.Dark 
-                    : Microsoft.Web.WebView2.Core.CoreWebView2PreferredColorScheme.Light;
-                
-                foreach (var tab in Tabs)
-                {
-                    try { tab.PrimaryWebView.CoreWebView2.Profile.PreferredColorScheme = wvTheme; } catch { }
-                    try { if (tab.SecondaryWebView != null) tab.SecondaryWebView.CoreWebView2.Profile.PreferredColorScheme = wvTheme; } catch { }
-                }
-                
-                RefreshNewTabs();
-            };
-            themeStack.Children.Add(themeToggle);
-            stack.Children.Add(themeStack);
+            string Chk(string val, string match) => val == match ? "checked" : "";
+            string Sel(string val, string match) => val == match ? "selected" : "";
 
-            // 2. Pin Sidebar Setting
-            var pinStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
-            pinStack.Children.Add(new FontIcon { Glyph = "\uE840", VerticalAlignment = VerticalAlignment.Center });
-            var pinToggle = new ToggleSwitch
-            {
-                Header = "Pin Sidebar",
-                IsOn = localSettings.Values["PinSidebar"] is bool pinned && pinned,
-                OffContent = "Auto-hide",
-                OnContent = "Pinned"
-            };
-            pinToggle.Toggled += (s, args) =>
-            {
-                localSettings.Values["PinSidebar"] = pinToggle.IsOn;
-                SidebarSplitView.IsPaneOpen = pinToggle.IsOn;
-                SidebarDismissOverlay.Visibility = Visibility.Collapsed;
-            };
-            pinStack.Children.Add(pinToggle);
-            stack.Children.Add(pinStack);
+            return $@"<!DOCTYPE html><html><head><meta charset='utf-8'>
+<title>Settings – Nuggi</title>
+<link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap' rel='stylesheet'>
+<style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{font-family:'Inter',sans-serif;background:{bg};color:{txt};padding:48px 0;min-height:100vh}}
+.wrap{{max-width:660px;margin:0 auto;padding:0 24px}}
+h1{{font-size:30px;font-weight:700;margin-bottom:6px}}
+.sub{{color:{sub};font-size:14px;margin-bottom:36px}}
+.card{{background:{card};border-radius:16px;border:1px solid {border};margin-bottom:20px;overflow:hidden}}
+.card-title{{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:{sub};padding:14px 20px 6px}}
+.row{{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid {border}}}
+.row:last-child{{border-bottom:none}}
+.label{{font-size:15px;font-weight:500}}
+.label-sub{{font-size:12px;color:{sub};margin-top:2px}}
+select{{background:{bg};color:{txt};border:1px solid {border};border-radius:8px;padding:6px 10px;font-size:14px;font-family:inherit;cursor:pointer;outline:none}}
+.toggle{{position:relative;width:44px;height:24px;cursor:pointer;flex-shrink:0}}
+.toggle input{{opacity:0;width:0;height:0}}
+.slider{{position:absolute;inset:0;background:{border};border-radius:24px;transition:background .2s}}
+.slider:before{{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:white;border-radius:50%;transition:transform .2s}}
+input:checked+.slider{{background:{accentHex}}}
+input:checked+.slider:before{{transform:translateX(20px)}}
+.swatches{{display:flex;gap:10px;padding:14px 20px}}
+.sw{{width:30px;height:30px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:transform .15s,border-color .15s}}
+.sw:hover{{transform:scale(1.15)}}
+.sw.on{{border-color:{txt}}}
+.dng{{background:transparent;border:1px solid #FF4B2B;color:#FF4B2B;border-radius:8px;padding:6px 14px;font-size:14px;font-family:inherit;cursor:pointer;transition:background .15s}}
+.dng:hover{{background:rgba(255,75,43,.1)}}
+</style></head><body>
+<div class='wrap'>
+  <h1>⚙️ Settings</h1>
+  <p class='sub'>Customize your Nuggi experience</p>
 
-            // 3. Search Engine Setting
-            var searchStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
-            searchStack.Children.Add(new FontIcon { Glyph = "\uE721", VerticalAlignment = VerticalAlignment.Center });
-            var searchCombo = new ComboBox
-            {
-                Header = "Default Search Engine",
-                Width = 200,
-                ItemsSource = new[] { "Google", "Bing", "DuckDuckGo" },
-                SelectedItem = localSettings.Values["SearchEngine"] as string ?? "Google"
-            };
-            searchCombo.SelectionChanged += (s, args) =>
-            {
-                localSettings.Values["SearchEngine"] = searchCombo.SelectedItem as string;
-                RefreshNewTabs();
-            };
-            searchStack.Children.Add(searchCombo);
-            stack.Children.Add(searchStack);
-            
-            // 4. Accent Color Setting
-            var accentStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
-            accentStack.Children.Add(new FontIcon { Glyph = "\uE790", VerticalAlignment = VerticalAlignment.Center });
-            var accentCombo = new ComboBox
-            {
-                Header = "Accent Color",
-                Width = 200,
-                ItemsSource = new[] { "Nuggi Gold", "Ocean Blue", "Forest Green", "Amethyst Purple", "Crimson Red" },
-                SelectedItem = localSettings.Values["AccentColor"] as string ?? "Nuggi Gold"
-            };
-            accentCombo.SelectionChanged += (s, args) =>
-            {
-                localSettings.Values["AccentColor"] = accentCombo.SelectedItem as string;
-                UpdateAccentColors();
-                RefreshNewTabs();
-            };
-            accentStack.Children.Add(accentCombo);
-            stack.Children.Add(accentStack);
-            
-            // 5. Clear Tabs Action
-            var clearStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
-            clearStack.Children.Add(new FontIcon { Glyph = "\uE74D", VerticalAlignment = VerticalAlignment.Center });
-            var clearBtn = new Button { Content = "Close all tabs", Width = 200 };
-            clearBtn.Click += (s, args) => 
-            {
-                var unpinned = Tabs.Where(t => !t.IsPinned).ToList();
-                foreach (var t in unpinned) 
-                { 
-                    Tabs.Remove(t); 
-                    WebViewContainer.Children.Remove(t.ContentContainer); 
-                    t.PrimaryWebView.Close(); 
-                    t.SecondaryWebView?.Close();
-                }
-                if (!Tabs.Any() && !PinnedTabs.Any()) CreateNewTab();
-            };
-            clearStack.Children.Add(clearBtn);
-            stack.Children.Add(clearStack);
+  <div class='card'>
+    <div class='card-title'>Appearance</div>
+    <div class='row'>
+      <div><div class='label'>Dark Mode</div><div class='label-sub'>Switch between light and dark theme</div></div>
+      <label class='toggle'><input type='checkbox' id='thm' {Chk(theme, "Dark")} onchange=""post('theme',this.checked?'Dark':'Light')""><span class='slider'></span></label>
+    </div>
+    <div class='row'><div class='label'>Accent Color</div></div>
+    <div class='swatches'>
+      <div class='sw {(accent=="Nuggi Gold"?"on":"")}' style='background:#ED8F03' onclick=""setAccent('Nuggi Gold',this)"" title='Nuggi Gold'></div>
+      <div class='sw {(accent=="Ocean Blue"?"on":"")}' style='background:#2F80ED' onclick=""setAccent('Ocean Blue',this)"" title='Ocean Blue'></div>
+      <div class='sw {(accent=="Forest Green"?"on":"")}' style='background:#28C76F' onclick=""setAccent('Forest Green',this)"" title='Forest Green'></div>
+      <div class='sw {(accent=="Amethyst Purple"?"on":"")}' style='background:#6E48AA' onclick=""setAccent('Amethyst Purple',this)"" title='Amethyst Purple'></div>
+      <div class='sw {(accent=="Crimson Red"?"on":"")}' style='background:#FF4B2B' onclick=""setAccent('Crimson Red',this)"" title='Crimson Red'></div>
+    </div>
+  </div>
 
-            dialog.Content = stack;
-            await dialog.ShowAsync();
+  <div class='card'>
+    <div class='card-title'>Browser</div>
+    <div class='row'>
+      <div><div class='label'>Pin Sidebar</div><div class='label-sub'>Keep the sidebar always visible</div></div>
+      <label class='toggle'><input type='checkbox' id='pin' {(pinned?"checked":"")} onchange=""post('pinSidebar',this.checked)""><span class='slider'></span></label>
+    </div>
+    <div class='row'>
+      <div><div class='label'>Search Engine</div><div class='label-sub'>Used when typing a query in the URL bar</div></div>
+      <select onchange=""post('searchEngine',this.value)"">
+        <option {Sel(engine,"Google")}>Google</option>
+        <option {Sel(engine,"Bing")}>Bing</option>
+        <option {Sel(engine,"DuckDuckGo")}>DuckDuckGo</option>
+      </select>
+    </div>
+  </div>
+
+  <div class='card'>
+    <div class='card-title'>Data</div>
+    <div class='row'>
+      <div><div class='label'>Clear History</div><div class='label-sub'>Permanently delete all browsing history</div></div>
+      <button class='dng' onclick=""post('clearHistory','true')"">Clear</button>
+    </div>
+  </div>
+</div>
+<script>
+function post(k,v){{window.chrome.webview.postMessage(JSON.stringify({{key:k,value:v}}));}}
+function setAccent(name,el){{document.querySelectorAll('.sw').forEach(s=>s.classList.remove('on'));el.classList.add('on');post('accentColor',name);}}
+</script>
+</body></html>";
         }
+
 
         private void RefreshNewTabs()
         {
